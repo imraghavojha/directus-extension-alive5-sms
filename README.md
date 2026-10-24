@@ -24,7 +24,7 @@ All six options are required. Directus resolves Flow data-chain expressions befo
 
 | Option | Description |
 | --- | --- |
-| API key (`apiKey`) | Alive5 API key; the editor masks the input. |
+| API key (`apiKey`) | Alive5 API key or `{{$env.ALIVE5_API_KEY}}`; the editor masks the input. |
 | Channel ID (`channelId`) | SMS channel associated with the sender number. |
 | User ID (`userId`) | Alive5 agent assigned to that channel. |
 | From number (`from`) | Alive5 business number in E.164 format, such as `+14155550100`. |
@@ -33,7 +33,20 @@ All six options are required. Directus resolves Flow data-chain expressions befo
 
 Phone numbers must start with `+` followed by 8–15 digits; the first digit cannot be zero. Other options are trimmed except the message.
 
-Masking is a display setting, not encryption or secret storage. Directus stores the API key in the operation's options; restrict access to Flow configuration, execution logs, and exports. The operation does not log keys or messages and excludes them from its tile overview and thrown errors.
+Masking is a display setting, not encryption or secret storage. A directly entered API key is stored in the operation's options and revisions; restrict access to Flow configuration, execution logs, and exports. The operation does not log keys or messages and excludes them from its tile overview and thrown errors.
+
+## Keeping the API key out of the database
+
+On self-hosted Directus 11, set these environment variables on the Directus server, then restart it:
+
+```sh
+ALIVE5_API_KEY=your-alive5-api-key
+FLOWS_ENV_ALLOW_LIST=ALIVE5_API_KEY
+```
+
+Set the operation's **API key** option to `{{$env.ALIVE5_API_KEY}}`. Directus resolves the allowed environment variable when the Flow runs; the operation options and their revisions store the template string instead of the key. If you already allow other variables, add `ALIVE5_API_KEY` to the comma-separated list. Directly entered keys remain supported.
+
+Directus 11.17.4 also redacts allowed environment values in stored Flow execution logs. Restrict who can edit Flows, since those editors can use allowed variables. Replacing an existing plain key does not erase older revisions; rotate any key previously stored there. See the [Directus data chain documentation](https://directus.com/docs/guides/automate/data-chain) and [v11.17.4 Flow implementation](https://github.com/directus/directus/blob/v11.17.4/api/src/flows.ts).
 
 ## Example Flow
 
@@ -56,7 +69,9 @@ Read these values as `{{send_sms.messageId}}` and `{{send_sms.conversationId}}` 
 
 ## Error behavior
 
-The handler checks both the HTTP response and Alive5's nested error fields, including failures returned with HTTP 200. A missing message ID is treated as a failure. Upstream response details and transport errors are never included in thrown errors because they may contain credentials or message text.
+The handler checks both the HTTP response and Alive5's nested error fields, including failures returned with HTTP 200. A missing message ID is treated as a failure. HTTP failures report `Alive5 rejected the request (HTTP 400).` (with the actual status). When response data is available, the known Alive5 error `Invalid token` adds `Invalid API key.` Arbitrary upstream text and transport errors are never included because they may contain credentials or message text.
+
+The [Directus 11.17.4 sandbox request implementation](https://github.com/directus/directus/blob/v11.17.4/api/src/extensions/lib/sandbox/sdk/generators/request.ts) uses Axios, which throws for non-2xx responses. The sandbox can preserve only the standard error message, so the handler also recognizes Axios's exact HTTP-status message; other request failures keep the generic retry guidance.
 
 The operation does not retry. After a transport failure or ambiguous response, check Alive5 conversation history before retrying to avoid duplicate messages. Network timeouts and redirect handling are managed by Directus's sandbox request implementation; its SDK does not expose per-request timeout or redirect options.
 

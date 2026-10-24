@@ -10,8 +10,8 @@ export default {
 			field: 'apiKey', name: 'API key', type: 'string',
 			meta: {
 				width: 'full', interface: 'input', required: true,
-				options: { masked: true },
-				note: 'Alive5 API key. Masking hides the input; Directus stores Flow options.',
+				options: { masked: true, placeholder: '{{$env.ALIVE5_API_KEY}}' },
+				note: 'Use {{$env.ALIVE5_API_KEY}} with FLOWS_ENV_ALLOW_LIST=ALIVE5_API_KEY, or enter a key (stored in Directus).',
 			},
 		},
 		{

@@ -15,9 +15,28 @@ function hasError(value) {
 	return Boolean(value) && (typeof value !== 'object' || Object.keys(value).length > 0);
 }
 
-function rejected(status) {
-	// Upstream errors can echo credentials or SMS text, even encoded. Never expose them.
-	return new Error(`Alive5 rejected the request (HTTP ${status}).`);
+function parseObject(value) {
+	if (typeof value !== 'string') return value;
+	try { return JSON.parse(value); } catch { return null; }
+}
+
+function rejected(status, data) {
+	// Only translate known errors. Arbitrary upstream text can echo keys or SMS text.
+	const result = parseObject(data);
+	const detail = result?.error?.message === 'Invalid token' ? ' Invalid API key.' : '';
+	return new Error(`Alive5 rejected the request (HTTP ${status}).${detail}`);
+}
+
+function httpError(error) {
+	// Directus serializes response objects; isolated-vm may then copy only Error.message.
+	const response = parseObject(error?.response);
+	const status = response?.status ?? error?.status;
+	if (Number.isInteger(status) && status >= 400 && status <= 599) {
+		return rejected(status, response?.data);
+	}
+	// Exact Axios-generated message only: never forward arbitrary transport error text.
+	const match = /^Request failed with status code ([45]\d{2})$/.exec(error?.message ?? '');
+	return match ? rejected(Number(match[1])) : null;
 }
 
 export default {
@@ -48,7 +67,9 @@ export default {
 					message,
 				},
 			});
-		} catch {
+		} catch (error) {
+			const rejection = httpError(error);
+			if (rejection) throw rejection;
 			// Sandbox transport errors may contain request headers/body. Do not rethrow them.
 			throw new Error('Alive5 request failed. Check conversation history before retrying.');
 		}
@@ -57,7 +78,7 @@ export default {
 		if (!Number.isInteger(status)) {
 			throw new Error('Alive5 returned an invalid response. Check conversation history before retrying.');
 		}
-		if (status < 200 || status >= 300) throw rejected(status);
+		if (status < 200 || status >= 300) throw rejected(status, response.data);
 
 		let result = response.data;
 		if (typeof result === 'string') {
@@ -68,10 +89,10 @@ export default {
 		if (!Number.isFinite(code) || code < 200 || code >= 400
 			|| hasError(result?.error) || Number(result?.data?.code) >= 400
 			|| hasError(result?.data?.error) || hasError(result?.data?.errors)) {
-			throw rejected(status);
+			throw rejected(status, result);
 		}
 		const sent = result?.data?.data;
-		if (!sent?.message_id) throw rejected(status);
+		if (!sent?.message_id) throw rejected(status, result);
 		return { messageId: sent.message_id, conversationId: sent.thread_id ?? '' };
 	},
 };
