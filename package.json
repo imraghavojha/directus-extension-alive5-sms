@@ -1,0 +1,61 @@
+{
+  "name": "@imraghavojha/directus-extension-alive5-sms",
+  "description": "Send SMS messages through Alive5 from Directus Flows.",
+  "icon": "sms",
+  "version": "1.0.0",
+  "keywords": [
+    "directus",
+    "directus-extension",
+    "directus-extension-operation"
+  ],
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "directus:extension": {
+    "type": "operation",
+    "path": {
+      "app": "dist/app.js",
+      "api": "dist/api.js"
+    },
+    "source": {
+      "app": "src/app.js",
+      "api": "src/api.js"
+    },
+    "host": "^10.10.0 || ^11.0.0",
+    "sandbox": {
+      "enabled": true,
+      "requestedScopes": {
+        "request": {
+          "methods": [
+            "POST"
+          ],
+          "urls": [
+            "https://api.alive5.com/public/1.0/conversations/sms/send"
+          ]
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "directus-extension build",
+    "dev": "directus-extension build -w --no-minify",
+    "link": "directus-extension link",
+    "validate": "directus-extension validate"
+  },
+  "devDependencies": {
+    "@directus/extensions-sdk": "18.0.6",
+    "vue": "^3.5.44"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imraghavojha/directus-extension-alive5-sms.git"
+  },
+  "homepage": "https://github.com/imraghavojha/directus-extension-alive5-sms#readme",
+  "bugs": {
+    "url": "https://github.com/imraghavojha/directus-extension-alive5-sms/issues"
+  }
+}
